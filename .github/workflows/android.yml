@@ -47,12 +47,23 @@ jobs:
           echo "APP_ID=$PKG" >> $GITHUB_ENV
       - name: Signing key
         if: env.HAS_KEY == 'true'
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $RUNNER_TEMP/release.jks && echo "KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> $GITHUB_ENV
-      - name: Build
         env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KB: ${{ secrets.KEYSTORE_BASE64 }}
+          KP: ${{ secrets.KEYSTORE_PASSWORD }}
+          KA: ${{ secrets.KEY_ALIAS }}
+          KK: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          # spaces / line breaks pasted around a secret are removed; an empty alias means "trip"
+          KP=$(printf '%s' "$KP" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          KK=$(printf '%s' "$KK" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          KA=$(printf '%s' "$KA" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'); [ -n "$KA" ] || KA=trip
+          [ -n "$KK" ] || KK="$KP"
+          printf '%s' "$KB" | tr -d ' \r\n' | base64 -d > $RUNNER_TEMP/release.jks 2>/dev/null || { echo "::error::KEYSTORE_BASE64 is not valid base64 — paste the whole text of KEYSTORE_BASE64.txt (one long line)"; exit 1; }
+          if ! keytool -list -keystore $RUNNER_TEMP/release.jks -storepass "$KP" > /dev/null 2>&1; then echo "::error::KEYSTORE_PASSWORD does not open the key — paste it again from GitHub-Secrets.txt (only the password, nothing else)"; exit 1; fi
+          if ! keytool -list -keystore $RUNNER_TEMP/release.jks -storepass "$KP" -alias "$KA" > /dev/null 2>&1; then echo "::error::KEY_ALIAS '$KA' is not in the key — it must be: trip"; exit 1; fi
+          echo "Signing key OK (alias $KA)"
+          { echo "KEYSTORE_FILE=$RUNNER_TEMP/release.jks"; echo "KEYSTORE_PASSWORD=$KP"; echo "KEY_ALIAS=$KA"; echo "KEY_PASSWORD=$KK"; } >> $GITHUB_ENV
+      - name: Build
         run: |
           chmod +x gradlew
           # every build gets a higher number by itself, so phones can update the app in place (needs the same signing key)
