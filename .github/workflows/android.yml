@@ -37,6 +37,10 @@ jobs:
           # the secret can be the file's text as it is, or the same in base64
           if printf '%s' "$GS" | grep -q '^[[:space:]]*{'; then printf '%s' "$GS" > app/google-services.json; else printf '%s' "$GS" | base64 -d > app/google-services.json; fi
           python3 -c "import json; d=json.load(open('app/google-services.json')); print('Firebase project:', d['project_info']['project_id'])"
+          # use the package name that was registered in Firebase (it must match, or the build stops)
+          PKG=$(python3 -c "import json; d=json.load(open('app/google-services.json')); print(d['client'][0]['client_info']['android_client_info']['package_name'])")
+          echo "Package name from Firebase: $PKG"
+          echo "APP_ID=$PKG" >> $GITHUB_ENV
       - name: Signing key
         if: env.HAS_KEY == 'true'
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $RUNNER_TEMP/release.jks && echo "KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> $GITHUB_ENV
@@ -47,7 +51,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           chmod +x gradlew
-          if [ -n "$KEYSTORE_FILE" ]; then ./gradlew --no-daemon assembleRelease; else ./gradlew --no-daemon assembleDebug; fi
+          if [ -n "$KEYSTORE_FILE" ]; then ./gradlew --no-daemon --stacktrace -PappId=$APP_ID assembleRelease; else ./gradlew --no-daemon --stacktrace -PappId=$APP_ID assembleDebug; fi
       - uses: actions/upload-artifact@v4
         with:
           name: TripExpense-apk
