@@ -19,7 +19,11 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      # the GitHub machine already has the Android SDK (ANDROID_HOME); a missing platform is downloaded by the build
+      - name: Android SDK
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
       - name: Unpack android-src.zip (the app and gradle folders, uploaded as one file)
         run: |
           if [ ! -d app ] && [ -f android-src.zip ]; then unzip -q -o android-src.zip && echo "Unpacked android-src.zip"; fi
