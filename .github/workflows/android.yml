@@ -55,8 +55,15 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           chmod +x gradlew
-          if [ -n "$KEYSTORE_FILE" ]; then ./gradlew --no-daemon --stacktrace -PappId=$APP_ID assembleRelease; else ./gradlew --no-daemon --stacktrace -PappId=$APP_ID assembleDebug; fi
+          # every build gets a higher number by itself, so phones can update the app in place (needs the same signing key)
+          BASE=$(grep '^versionName=' gradle.properties | cut -d= -f2 | tr -d '[:space:]')
+          VNAME="$BASE.${{ github.run_number }}"; VCODE=$((1000 + ${{ github.run_number }}))
+          echo "Version $VNAME (code $VCODE)"
+          ARGS="--no-daemon --stacktrace -PappId=$APP_ID -PversionName=$VNAME -PversionCode=$VCODE"
+          if [ -n "$KEYSTORE_FILE" ]; then ./gradlew $ARGS assembleRelease; else echo "::warning::No signing key (KEYSTORE_BASE64): a debug APK is made. Each build then has another key, and phones must uninstall before installing it (no in-app update)."; ./gradlew $ARGS assembleDebug; fi
+          mkdir -p out && cp $(ls app/build/outputs/apk/*/*.apk | head -1) "out/TripExpense-$VNAME.apk"
+          echo "VNAME=$VNAME" >> $GITHUB_ENV
       - uses: actions/upload-artifact@v4
         with:
-          name: TripExpense-apk
-          path: app/build/outputs/apk/**/*.apk
+          name: TripExpense-${{ env.VNAME }}
+          path: out/*.apk
