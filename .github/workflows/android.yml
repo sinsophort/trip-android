@@ -20,10 +20,13 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
+      - name: Unpack android-src.zip (the app and gradle folders, uploaded as one file)
+        run: |
+          if [ ! -d app ] && [ -f android-src.zip ]; then unzip -q -o android-src.zip && echo "Unpacked android-src.zip"; fi
       - name: Check the files
         run: |
           for f in app/build.gradle app/src/main/AndroidManifest.xml gradlew gradle/wrapper/gradle-wrapper.jar settings.gradle gradle.properties; do
-            if [ ! -f "$f" ]; then echo "::error::Missing $f — upload the CONTENTS of the folder Native-Android (app, gradle, gradlew, …) to the top of the repository, not the folder itself"; ls -la; exit 1; fi
+            if [ ! -f "$f" ]; then echo "::error::Missing $f — upload android-src.zip (or the folders app and gradle) to the top of the repository"; ls -la; exit 1; fi
           done
           echo "Files OK"
       - name: google-services.json
