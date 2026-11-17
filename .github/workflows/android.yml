@@ -20,10 +20,17 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
+      - name: Check the files
+        run: |
+          for f in app/build.gradle app/src/main/AndroidManifest.xml gradlew gradle/wrapper/gradle-wrapper.jar settings.gradle gradle.properties; do
+            if [ ! -f "$f" ]; then echo "::error::Missing $f — upload the CONTENTS of the folder Native-Android (app, gradle, gradlew, …) to the top of the repository, not the folder itself"; ls -la; exit 1; fi
+          done
+          echo "Files OK"
       - name: google-services.json
         env:
           GS: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
+          if [ -z "$GS" ]; then echo "::error::The secret GOOGLE_SERVICES_JSON is missing — Settings → Secrets and variables → Actions → New repository secret"; exit 1; fi
           # the secret can be the file's text as it is, or the same in base64
           if printf '%s' "$GS" | grep -q '^[[:space:]]*{'; then printf '%s' "$GS" > app/google-services.json; else printf '%s' "$GS" | base64 -d > app/google-services.json; fi
           python3 -c "import json; d=json.load(open('app/google-services.json')); print('Firebase project:', d['project_info']['project_id'])"
